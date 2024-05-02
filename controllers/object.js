@@ -1,9 +1,21 @@
 import ObjectModel from "../models/object.js"
+import NodeCache from 'node-cache'
+
+// Initialize a new cache instance
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 })
 
 // Function to get an object by key
 export function getObject(req, res) {
     const key = req.params.key
     const timestamp = req.query.timestamp
+    const cacheKey = key + (timestamp ? `_${timestamp}` : '')
+
+    // Check if the data is cached
+    const cachedData = cache.get(cacheKey)
+    if (cachedData) {
+        return res.json({ value: cachedData })
+    }
+
     const query = { key }
 
     if (timestamp) {
@@ -15,6 +27,9 @@ export function getObject(req, res) {
     ObjectModel.findOne(query).sort({ timestamp: -1 })
         .then((result) => {
             if (result) {
+                // Cache the retrieved data
+                cache.set(cacheKey, result.value)
+
                 // If object is found, send it as a JSON response
                 res.json({ value: result.value })
             } else {
